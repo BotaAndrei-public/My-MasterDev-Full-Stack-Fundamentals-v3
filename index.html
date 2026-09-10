@@ -42,33 +42,54 @@
         const statusBadge = document.getElementById('status');
         const visitorsBadge = document.getElementById('visitors');
 
-        function connect() {
+        function getWsUrl() {
+            // Dacă fișierul e deschis direct (file://) sau fără host, fallback pe localhost:3000
+            if (window.location.protocol === 'file:' || !window.location.host) {
+                return 'ws://localhost:3000';
+            }
             const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-            const wsUrl = `${proto}://${window.location.host}`;
+            return `${proto}://${window.location.host}`;
+        }
+
+        function connect() {
+            const wsUrl = getWsUrl();
+            console.log(`🔌 [WS] Încercare conectare la: ${wsUrl}`);
             
             ws = new WebSocket(wsUrl);  
             
             ws.onopen = () => {
+                console.log("🟢 [WS] Conectat cu succes la serverul WebSocket!");
                 statusBadge.innerText = "Live Synced";
                 statusBadge.className = "status-badge";
             };
 
             ws.onmessage = (event) => {
+                console.log("📩 [WS Raw Message]:", event.data);
+                
                 try {
                     const data = JSON.parse(event.data);
                     
-                    if (data.type === 'time') {
+                    if (data.type === 'info') {
+                        console.log("👋 [Server Welcome]:", data.message);
+                    } else if (data.type === 'time') {
+                        console.log("⏰ [Server Timestamp]:", data.timestamp);
                         serverTimeOffset = data.timestamp - Date.now();
                         if (!clockTimer) startClockTicking();
                     } else if (data.type === 'visitors') {
+                        console.log("👥 [Vizitatori Activi]:", data.count);
                         visitorsBadge.innerText = `Active Visitors: ${data.count}`;
                     }
                 } catch (e) {
-                    console.log("Raw message received:", event.data);
+                    console.log("📄 [Text Simplu]:", event.data);
                 }
             };
 
-            ws.onclose = () => {
+            ws.onerror = (error) => {
+                console.error("❌ [WS Eroare]: Conexiunea a eșuat sau serverul nu este pornit.", error);
+            };
+
+            ws.onclose = (event) => {
+                console.warn("⚠️ [WS Conexiune Închisă]. Reîncercare în 3 secunde...", event);
                 statusBadge.innerText = "Disconnected. Retrying...";
                 statusBadge.className = "status-badge connecting";
                 if (clockTimer) clearInterval(clockTimer);
@@ -78,6 +99,7 @@
         }
 
         function startClockTicking() {
+            console.log("⏱️ Pornește ceasul local sincronizat...");
             if (clockTimer) clearInterval(clockTimer);
             clockTimer = setInterval(() => {
                 const correctTime = new Date(Date.now() + serverTimeOffset);

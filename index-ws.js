@@ -10,7 +10,7 @@ app.get('/', function(req, res) {
 
 server.on('request', app);
 server.listen(3000, function() { 
-    console.log('Server started on port 3000 -> http://localhost:3000'); 
+    console.log('🚀 [SERVER] Serverul a pornit pe portul 3000 -> http://localhost:3000'); 
 });
 
 /** Begin database */
@@ -22,7 +22,9 @@ db.serialize(() => {
             count INTEGER,
             time TEXT
         )
-    `);
+    `, (err) => {
+        if (!err) console.log('🗄️  [DB] Tabela "visitors" este pregătită.');
+    });
 });
 
 /** Begin websocket */
@@ -38,38 +40,44 @@ wss.broadcast = function broadcast(data) {
 
 wss.on('connection', function connection(ws) {
     const numClients = wss.clients.size;
-    console.log('Clients connected:', numClients);
+    console.log(`🟢 [SERVER] Client nou conectat! Total clienți conectați: ${numClients}`);
 
-    // Trimite numărul de vizitatori tuturor clienților
+    // 1. Mesaj de bun venit
+    ws.send(JSON.stringify({ type: 'info', message: 'Welcome to my server!' }));
+
+    // 2. Trimitem numărul actualizat de vizitatori tuturor clienților
     wss.broadcast(JSON.stringify({ type: 'visitors', count: numClients }));
 
-    // Trimite timestamp-ul curent clientului conectat
-    if (ws.readyState === 1) {
-        ws.send(JSON.stringify({ type: 'time', timestamp: Date.now() }));
-    }
+    // 3. Trimitem ora curentă (timestamp)
+    ws.send(JSON.stringify({ type: 'time', timestamp: Date.now() }));
 
+    // 4. Salvare în baza de date
     db.run(`INSERT INTO visitors (count, time) VALUES (?, datetime('now'))`, [numClients], (err) => {
-        if (err) console.error("DB Error:", err.message);
+        if (err) {
+            console.error("❌ [DB Error]:", err.message);
+        } else {
+            console.log(`💾 [DB] Înregistrare salvată în baza de date: ${numClients} vizitatori.`);
+        }
     });
 
     ws.on('close', function close() {
+        console.log(`🔴 [SERVER] Un client s-a deconectat. Rămași: ${wss.clients.size}`);
         wss.broadcast(JSON.stringify({ type: 'visitors', count: wss.clients.size }));
-        console.log('A client has disconnected');
     });
 });
 
 function shutdownDB() {
-    console.log('Reading final counts before shutdown...');
+    console.log('📊 [DB] Citire numărători finale înainte de oprire...');
     db.each("SELECT * FROM visitors", 
         (err, row) => {
             if (err) console.error(err);
-            console.log(row);
+            console.log("   ROW:", row);
         }, 
         () => { 
-            console.log('Shutting down db...');
+            console.log('🛑 [DB] Închidere bază de date...');
             db.close((err) => {
                 if (err) console.error(err);
-                console.log('Database closed safely.');
+                console.log('✅ [DB] Baza de date a fost închisă în siguranță.');
                 process.exit(0); 
             });
         }
@@ -77,7 +85,7 @@ function shutdownDB() {
 }
 
 process.on('SIGINT', () => {
-    console.log('SIGINT received, shutting down gracefully...');
+    console.log('\n⚠️ [SERVER] Semnal SIGINT primit. Închidere curată...');
     wss.clients.forEach(function each(client) {
         client.close();
     });
@@ -90,6 +98,7 @@ function pornesteCeasGlobal() {
     const milisecundePanaLaMinutulUrmator = 60000 - (acum.getSeconds() * 1000 + acum.getMilliseconds());
 
     setTimeout(function() {
+        console.log('📡 [SYNC] Se trimite resincronizarea de timp către toți clienții...');
         wss.broadcast(JSON.stringify({ type: 'time', timestamp: Date.now() }));
         pornesteCeasGlobal(); 
     }, milisecundePanaLaMinutulUrmator);
