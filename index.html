@@ -5,65 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Bucharest Clock</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #0d1117;
-            color: #c9d1d9;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            flex-direction: column;
-            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0d1117; color: #c9d1d9;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; flex-direction: column; text-align: center;
         }
-
         .clock-container {
-            background-color: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 16px;
-            padding: 2.5rem;
+            background-color: #161b22; border: 1px solid #30363d;
+            border-radius: 16px; padding: 2.5rem; width: 90%; max-width: 400px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            max-width: 400px;
-            width: 90%;
         }
-
-        h1 {
-            font-size: 1.2rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: #8b949e;
-            margin-bottom: 1rem;
-        }
-
-        .time-box {
-            font-size: 3.5rem;
-            font-weight: 700;
-            color: #58a6ff;
-            text-shadow: 0 0 20px rgba(88, 166, 255, 0.2);
-            font-variant-numeric: tabular-nums;
-            margin-bottom: 1.5rem;
-        }
-
-        .status-badge {
-            display: inline-block;
-            background-color: rgba(56, 139, 253, 0.15);
-            color: #58a6ff;
-            padding: 0.4rem 1rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-
-        .status-badge.connecting {
-            background-color: rgba(210, 153, 34, 0.15);
-            color: #d29922;
-        }
+        h1 { font-size: 1.1rem; text-transform: uppercase; letter-spacing: 2px; color: #8b949e; margin-bottom: 1rem; }
+        .time-box { font-size: 3.5rem; font-weight: 700; color: #58a6ff; font-variant-numeric: tabular-nums; margin-bottom: 1.5rem; }
+        .status-badge { display: inline-block; background-color: rgba(56, 139, 253, 0.15); color: #58a6ff; padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+        .status-badge.connecting { background-color: rgba(210, 153, 34, 0.15); color: #d29922; }
     </style>
 </head>
 <body>
@@ -92,51 +49,39 @@
             };
 
             ws.onmessage = (event) => {
-                console.log("Received:", event.data);
-                
-                // Safety guard: string check
-                if (typeof event.data === 'string' && event.data.startsWith("TIMESTAMP:")) {
-                    const serverTimestamp = parseInt(event.data.replace("TIMESTAMP:", ""), 10);
+                try {
+                    const data = JSON.parse(event.data);
                     
-                    if (!isNaN(serverTimestamp)) {
-                        serverTimeOffset = serverTimestamp - Date.now();
-                        
-                        // Restart timer if it isn't running
-                        if (!clockTimer) {
-                            startClockTicking();
-                        }
+                    // Safely route the object type
+                    if (data.type === 'time') {
+                        serverTimeOffset = data.timestamp - Date.now();
+                        if (!clockTimer) startClockTicking();
                     }
+                } catch (e) {
+                    // Ignore non-JSON raw fallback text safely
+                    console.log("Raw text fallback:", event.data);
                 }
             };
 
             ws.onclose = () => {
                 statusBadge.innerText = "Disconnected. Retrying...";
                 statusBadge.className = "status-badge connecting";
-                
-                // Clear any existing timer loops upon closure
                 clearInterval(clockTimer);
                 clockTimer = null;
-
-                // Reconnect automatically if dropped
-                setTimeout(connect, 3000);
+                setTimeout(connect, 2000);
             };
         }
 
         function startClockTicking() {
-            // Clear any old intervals before creating a fresh one
             if (clockTimer) clearInterval(clockTimer);
-            
             clockTimer = setInterval(() => {
                 const correctTime = new Date(Date.now() + serverTimeOffset);
                 clockDisplay.innerText = correctTime.toLocaleTimeString('ro-RO', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
+                    hour: '2-digit', minute: '2-digit', second: '2-digit'
                 });
             }, 1000);
         }
 
-        // Initialize connection
         connect();
     </script>
 </body>
