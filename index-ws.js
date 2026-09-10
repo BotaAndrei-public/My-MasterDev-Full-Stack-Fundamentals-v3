@@ -94,14 +94,13 @@ function shutdownDB() {
     );
 }
 
-
 function pornesteCeasGlobal() {
     const acum = new Date();
     const milisecundePanaLaMinutulUrmator = 60000 - (acum.getSeconds() * 1000 + acum.getMilliseconds());
 
     setTimeout(function() {
         wss.broadcast(`TIMESTAMP:${Date.now()}`);
-        pornesteCeasGlobal();
+        pornesteCeasGlobal(); 
     }, milisecundePanaLaMinutulUrmator);
 }
 
