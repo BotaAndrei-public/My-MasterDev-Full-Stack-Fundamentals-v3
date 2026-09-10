@@ -2,18 +2,113 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <title>Ora Server</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Bucharest Clock</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0d1117; color: #c9d1d9;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; flex-direction: column; text-align: center;
+        }
+        .clock-container {
+            background-color: #161b22; border: 1px solid #30363d;
+            border-radius: 16px; padding: 2.5rem; width: 90%; max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        h1 { font-size: 1.1rem; text-transform: uppercase; letter-spacing: 2px; color: #8b949e; margin-bottom: 1rem; }
+        .time-box { font-size: 3.5rem; font-weight: 700; color: #58a6ff; font-variant-numeric: tabular-nums; margin-bottom: 1rem; }
+        .status-badge { display: inline-block; background-color: rgba(56, 139, 253, 0.15); color: #58a6ff; padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .status-badge.connecting { background-color: rgba(210, 153, 34, 0.15); color: #d29922; }
+        .visitors-count { font-size: 0.9rem; color: #8b949e; margin-top: 0.5rem; }
+    </style>
 </head>
 <body>
-    <h1>Ora de pe server: <span id="ora">Se încarcă...</span></h1>
+
+    <div class="clock-container">
+        <h1>Bucharest Clock Time</h1>
+        <div id="clock-display" class="time-box">--:--:--</div>
+        <div id="status" class="status-badge connecting">Connecting...</div>
+        <div id="visitors" class="visitors-count">Active Visitors: --</div>
+    </div>
 
     <script>
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws = new WebSocket(`${protocol}//${window.location.host}`);
+        let ws;
+        let clockTimer;
+        let serverTimeOffset = 0;
+        
+        const clockDisplay = document.getElementById('clock-display');
+        const statusBadge = document.getElementById('status');
+        const visitorsBadge = document.getElementById('visitors');
 
-        ws.onmessage = (event) => {
-            document.getElementById('ora').innerText = event.data;
-        };
+        function getWsUrl() {
+            if (window.location.protocol === 'file:' || !window.location.host) {
+                return 'ws://localhost:3000';
+            }
+            const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            return `${proto}://${window.location.host}`;
+        }
+
+        function connect() {
+            const wsUrl = getWsUrl();
+            console.log(`🔌 [WS] Încercare conectare la: ${wsUrl}`);
+            
+            ws = new WebSocket(wsUrl);  
+            
+            ws.onopen = () => {
+                console.log("🟢 [WS] Conectat cu succes la server!");
+                statusBadge.innerText = "Live Synced";
+                statusBadge.className = "status-badge";
+            };
+
+            ws.onmessage = (event) => {
+                console.log("📩 [WS Raw Message]:", event.data);
+                
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'info') {
+                        console.log("👋 [Server Welcome]:", data.message);
+                    } else if (data.type === 'time') {
+                        console.log("⏰ [Server Timestamp]:", data.timestamp);
+                        serverTimeOffset = data.timestamp - Date.now();
+                        if (!clockTimer) startClockTicking();
+                    } else if (data.type === 'visitors') {
+                        console.log("👥 [Vizitatori Activi]:", data.count);
+                        visitorsBadge.innerText = `Active Visitors: ${data.count}`;
+                    }
+                } catch (e) {
+                    console.log("📄 [Text Simplu]:", event.data);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error("❌ [WS Eroare]:", error);
+            };
+
+            ws.onclose = (event) => {
+                console.warn("⚠️ [WS Conexiune Închisă]. Reîncercare în 3 secunde...", event);
+                statusBadge.innerText = "Disconnected. Retrying...";
+                statusBadge.className = "status-badge connecting";
+                if (clockTimer) clearInterval(clockTimer);
+                clockTimer = null;
+                setTimeout(connect, 3000);
+            };
+        }
+
+        function startClockTicking() {
+            console.log("⏱️ Pornește ceasul local sincronizat...");
+            if (clockTimer) clearInterval(clockTimer);
+            clockTimer = setInterval(() => {
+                const correctTime = new Date(Date.now() + serverTimeOffset);
+                clockDisplay.innerText = correctTime.toLocaleTimeString('ro-RO', {
+                    hour: '2-digit', minute: '2-digit', second: '2-digit'
+                });
+            }, 1000);
+        }
+
+        connect();
     </script>
 </body>
 </html>
