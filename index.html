@@ -82,32 +82,50 @@
         const clockDisplay = document.getElementById('clock-display');
         const statusBadge = document.getElementById('status');
 
-        const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        ws = new WebSocket(`${proto}://${window.location.host}`);  
-        
-        ws.onopen = () => {
-            statusBadge.innerText = "Live Synced";
-            statusBadge.className = "status-badge";
-        };
-
-        ws.onmessage = (event) => {
-            console.log("Received:", event.data);
+        function connect() {
+            const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            ws = new WebSocket(`${proto}://${window.location.host}`);  
             
-            // Only process if it is a timestamp string
-            if (typeof event.data === 'string' && event.data.startsWith("TIMESTAMP:")) {
-                const serverTimestamp = parseInt(event.data.replace("TIMESTAMP:", ""), 10);
+            ws.onopen = () => {
+                statusBadge.innerText = "Live Synced";
+                statusBadge.className = "status-badge";
+            };
+
+            ws.onmessage = (event) => {
+                console.log("Received:", event.data);
                 
-                if (!isNaN(serverTimestamp)) {
-                    serverTimeOffset = serverTimestamp - Date.now();
+                // Safety guard: string check
+                if (typeof event.data === 'string' && event.data.startsWith("TIMESTAMP:")) {
+                    const serverTimestamp = parseInt(event.data.replace("TIMESTAMP:", ""), 10);
                     
-                    if (!clockTimer) {
-                        startClockTicking();
+                    if (!isNaN(serverTimestamp)) {
+                        serverTimeOffset = serverTimestamp - Date.now();
+                        
+                        // Restart timer if it isn't running
+                        if (!clockTimer) {
+                            startClockTicking();
+                        }
                     }
                 }
-            }
-        };
+            };
+
+            ws.onclose = () => {
+                statusBadge.innerText = "Disconnected. Retrying...";
+                statusBadge.className = "status-badge connecting";
+                
+                // Clear any existing timer loops upon closure
+                clearInterval(clockTimer);
+                clockTimer = null;
+
+                // Reconnect automatically if dropped
+                setTimeout(connect, 3000);
+            };
+        }
 
         function startClockTicking() {
+            // Clear any old intervals before creating a fresh one
+            if (clockTimer) clearInterval(clockTimer);
+            
             clockTimer = setInterval(() => {
                 const correctTime = new Date(Date.now() + serverTimeOffset);
                 clockDisplay.innerText = correctTime.toLocaleTimeString('ro-RO', {
@@ -118,13 +136,8 @@
             }, 1000);
         }
 
-        ws.onclose = () => {
-            statusBadge.innerText = "Disconnected";
-            statusBadge.className = "status-badge connecting";
-            clockDisplay.innerText = "--:--:--";
-            clearInterval(clockTimer);
-            clockTimer = null;
-        };
+        // Initialize connection
+        connect();
     </script>
 </body>
 </html>
