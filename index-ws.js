@@ -24,18 +24,21 @@ db.serialize(() => {
 
 /** Begin websocket */
 const WebSocketServer = require('ws').Server;
-const wss = new WebSocketServer({server: server});
+
+// Configured with /ws path restriction for secure reverse-proxy mapping
+const wss = new WebSocketServer({
+    server: server,
+    path: '/ws'
+});
 
 wss.on('connection', function connection(ws) {
     const numClients = wss.clients.size;
     console.log('Clients connected', numClients);
 
-    // Send visitors safely as a JSON object
     wss.broadcast(JSON.stringify({ type: 'visitors', count: numClients }));
 
     if (ws.readyState === 1) { 
         ws.send(JSON.stringify({ type: 'info', message: 'Welcome to my server' }));
-        // Send the absolute server timestamp down cleanly
         ws.send(JSON.stringify({ type: 'time', timestamp: Date.now() }));
     }
 

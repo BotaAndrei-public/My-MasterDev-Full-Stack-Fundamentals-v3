@@ -40,8 +40,9 @@
         const statusBadge = document.getElementById('status');
 
         function connect() {
-            const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-            ws = new WebSocket(`${proto}://${window.location.host}`);  
+            // Force secure WebSocket protocol linking via your reverse proxy
+            const wsUrl = `wss://${window.location.host}/ws`;
+            ws = new WebSocket(wsUrl);  
             
             ws.onopen = () => {
                 statusBadge.innerText = "Live Synced";
@@ -52,14 +53,12 @@
                 try {
                     const data = JSON.parse(event.data);
                     
-                    // Safely route the object type
                     if (data.type === 'time') {
                         serverTimeOffset = data.timestamp - Date.now();
                         if (!clockTimer) startClockTicking();
                     }
                 } catch (e) {
-                    // Ignore non-JSON raw fallback text safely
-                    console.log("Raw text fallback:", event.data);
+                    console.log("Raw message:", event.data);
                 }
             };
 
@@ -68,7 +67,7 @@
                 statusBadge.className = "status-badge connecting";
                 clearInterval(clockTimer);
                 clockTimer = null;
-                setTimeout(connect, 2000);
+                setTimeout(connect, 3000);
             };
         }
 
