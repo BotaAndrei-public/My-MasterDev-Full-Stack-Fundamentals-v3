@@ -40,8 +40,10 @@
         const statusBadge = document.getElementById('status');
 
         function connect() {
-            // Force secure WebSocket protocol linking via your reverse proxy
-            const wsUrl = `wss://${window.location.host}/ws`;
+            // Detectează automat dacă ești pe HTTP (ws://) sau HTTPS (wss://)
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
             ws = new WebSocket(wsUrl);  
             
             ws.onopen = () => {
@@ -85,4 +87,3 @@
     </script>
 </body>
 </html>
-

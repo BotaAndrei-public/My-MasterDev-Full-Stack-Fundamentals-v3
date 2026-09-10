@@ -3,11 +3,13 @@ const server = require('http').createServer();
 const app = express();
 
 app.get('/', function(req, res) {
-    res.sendFile('index.html', {root: __dirname});
+    res.sendFile('index.html', { root: __dirname });
 });
 
 server.on('request', app);
-server.listen(3000, function() { console.log('Server started on port 3000'); });
+server.listen(3000, function() { 
+    console.log('Server started on port 3000 -> http://localhost:3000'); 
+});
 
 /** Begin database */
 const sqlite = require('sqlite3');
@@ -25,7 +27,6 @@ db.serialize(() => {
 /** Begin websocket */
 const WebSocketServer = require('ws').Server;
 
-// Configured with /ws path restriction for secure reverse-proxy mapping
 const wss = new WebSocketServer({
     server: server,
     path: '/ws'
@@ -33,7 +34,7 @@ const wss = new WebSocketServer({
 
 wss.on('connection', function connection(ws) {
     const numClients = wss.clients.size;
-    console.log('Clients connected', numClients);
+    console.log('Clients connected:', numClients);
 
     wss.broadcast(JSON.stringify({ type: 'visitors', count: numClients }));
 
@@ -71,4 +72,3 @@ function pornesteCeasGlobal() {
 }
 
 pornesteCeasGlobal();
-
