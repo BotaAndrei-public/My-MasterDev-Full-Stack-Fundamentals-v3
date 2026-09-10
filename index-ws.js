@@ -100,13 +100,7 @@ function pornesteCeasGlobal() {
     const milisecundePanaLaMinutulUrmator = 60000 - (acum.getSeconds() * 1000 + acum.getMilliseconds());
 
     setTimeout(function() {
-        const oraExacta = new Date().toLocaleTimeString('ro-RO', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-        });
-        
-        wss.broadcast(`Ora exactă este: ${oraExacta}`);
-        
+        wss.broadcast(`TIMESTAMP:${Date.now()}`);
         pornesteCeasGlobal();
     }, milisecundePanaLaMinutulUrmator);
 }
