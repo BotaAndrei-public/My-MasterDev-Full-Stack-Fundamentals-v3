@@ -13,7 +13,6 @@ server.listen(3000, function() { console.log('Server started on port 3000'); });
 const sqlite = require('sqlite3');
 const db = new sqlite.Database('./fsfe.db'); 
 
-// FIX #1: Keep the DB setup completely synchronous and stable before accepting traffic
 db.serialize(() => {
     db.run(`
         CREATE TABLE IF NOT EXISTS visitors (
@@ -23,68 +22,36 @@ db.serialize(() => {
     `);
 });
 
-function shutdownDB() {
-    console.log('Reading final counts before shutdown...');
-    db.each("SELECT * FROM visitors", 
-        (err, row) => {
-            if (err) console.error(err);
-            console.log(row);
-        }, 
-        () => { 
-            console.log('Shutting down db...');
-            db.close((err) => {
-                if (err) console.error(err);
-                console.log('Database closed safely.');
-                process.exit(0); 
-            });
-        }
-    );
-}
-
 /** Begin websocket */
 const WebSocketServer = require('ws').Server;
 const wss = new WebSocketServer({server: server});
-
-process.on('SIGINT', () => {
-    console.log('sigint');
-    wss.clients.forEach(function each(client) {
-        client.close();
-    });
-    server.close();
-    shutdownDB();
-});
 
 wss.on('connection', function connection(ws) {
     const numClients = wss.clients.size;
     console.log('Clients connected', numClients);
 
-    // Broadcast updated attendee tally safely
-    wss.broadcast(`Current visitors: ${numClients}`);
+    // Send visitors safely as a JSON object
+    wss.broadcast(JSON.stringify({ type: 'visitors', count: numClients }));
 
-    if (ws.readyState === 1) { // 1 means OPEN
-        ws.send('Welcome to my server');
-        ws.send(`TIMESTAMP:${Date.now()}`);
+    if (ws.readyState === 1) { 
+        ws.send(JSON.stringify({ type: 'info', message: 'Welcome to my server' }));
+        // Send the absolute server timestamp down cleanly
+        ws.send(JSON.stringify({ type: 'time', timestamp: Date.now() }));
     }
 
-    // Wrapped in a safe try-catch wrapper block
-    try {
-        db.run(`INSERT INTO visitors (count, time) VALUES (?, datetime('now'))`, [numClients], (err) => {
-            if (err) console.error("Database Insert Error: ", err.message);
-        });
-    } catch (e) {
-        console.error("Database connection fault handled:", e);
-    }
+    db.run(`INSERT INTO visitors (count, time) VALUES (?, datetime('now'))`, [numClients], (err) => {
+        if (err) console.error("DB Error ignored:", err.message);
+    });
 
     ws.on('close', function close() {
-        wss.broadcast(`Current visitors: ${wss.clients.size}`);
+        wss.broadcast(JSON.stringify({ type: 'visitors', count: wss.clients.size }));
         console.log('A client has disconnected');
     });
 });
 
-// FIX #2: Safely broadcast ONLY to actively connected open clients
 wss.broadcast = function broadcast(data) {
     wss.clients.forEach(function each(client) {
-        if (client.readyState === 1) { // 1 means WebSocket.OPEN
+        if (client.readyState === 1) { 
             client.send(data);
         }
     });
@@ -95,11 +62,10 @@ function pornesteCeasGlobal() {
     const milisecundePanaLaMinutulUrmator = 60000 - (acum.getSeconds() * 1000 + acum.getMilliseconds());
 
     setTimeout(function() {
-        wss.broadcast(`TIMESTAMP:${Date.now()}`);
+        wss.broadcast(JSON.stringify({ type: 'time', timestamp: Date.now() }));
         pornesteCeasGlobal(); 
     }, milisecundePanaLaMinutulUrmator);
 }
 
 pornesteCeasGlobal();
-/** end websockets */
 
