@@ -77,7 +77,7 @@
     <script>
         let ws;
         let clockTimer;
-        let serverTimeOffset = 0; // Difference between server time and browser time
+        let serverTimeOffset = 0;
         
         const clockDisplay = document.getElementById('clock-display');
         const statusBadge = document.getElementById('status');
@@ -91,26 +91,25 @@
         };
 
         ws.onmessage = (event) => {
-            console.log("Received data:", event.data);
+            console.log("Received:", event.data);
             
-            if (event.data.startsWith("TIMESTAMP:")) {
+            // Only process if it is a timestamp string
+            if (typeof event.data === 'string' && event.data.startsWith("TIMESTAMP:")) {
                 const serverTimestamp = parseInt(event.data.replace("TIMESTAMP:", ""), 10);
                 
-                // Calculate the offset between server clock and client clock
-                serverTimeOffset = serverTimestamp - Date.now();
-                
-                // Start local ticking immediately if not already running
-                if (!clockTimer) {
-                    startClockTicking();
+                if (!isNaN(serverTimestamp)) {
+                    serverTimeOffset = serverTimestamp - Date.now();
+                    
+                    if (!clockTimer) {
+                        startClockTicking();
+                    }
                 }
             }
         };
 
         function startClockTicking() {
             clockTimer = setInterval(() => {
-                // Correct local time using server offset
                 const correctTime = new Date(Date.now() + serverTimeOffset);
-                
                 clockDisplay.innerText = correctTime.toLocaleTimeString('ro-RO', {
                     hour: '2-digit',
                     minute: '2-digit',
