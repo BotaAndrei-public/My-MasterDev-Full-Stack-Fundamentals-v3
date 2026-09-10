@@ -14,8 +14,15 @@
     const proto = window.location.protocol  === 'https:' ? 'wss' : 'ws';
     ws = new WebSocket(`${proto}://${window.location.host}`);  
     
-    ws.onmessage = (event) => {console.log(event.data)};
-    
+    ws.onmessage = (event) => {
+                console.log(event.data);
+                
+                // Check if the message contains the time from the server
+                if (event.data.includes("Ora exactă este:")) {
+                    // Update the text in our h2 element
+                    document.getElementById('clock-display').innerText = event.data;
+                }
+            };
 
 
 </script>
