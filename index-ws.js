@@ -37,12 +37,8 @@ wss.on('connection', function connection(ws) {
 
     if (ws.readyState === ws.OPEN) {
         ws.send('Welcome to my server');
-          const oraLocalaAcum = new Date().toLocaleTimeString('ro-RO', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-        });
-        ws.send(`Ora exactă este: ${oraLocalaAcum}`);
-    }
+         ws.send(`TIMESTAMP:${Date.now()}`);
+        }
 
     db.run(`INSERT INTO visitors (count, time)
         VALUES (${numClients}, datetime('now'))
